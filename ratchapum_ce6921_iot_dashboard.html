@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ratchapum CE6921 - IoT Telemetry Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+        .glass-card {
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- TOP HEADER -->
+    <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            
+            <!-- Left Branding -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-microchip text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-base font-bold text-slate-900 dark:text-white leading-tight tracking-tight">Ratchapum CE6921</h1>
+                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800">
+                            IoT Telemetry
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Live Temperature & Humidity Monitor</p>
+                </div>
+            </div>
+
+            <!-- Right Header Controls -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                
+                <!-- Live Connection Badge -->
+                <div id="connection-status-badge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-all">
+                    <span id="status-led" class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse shadow-sm shadow-emerald-500"></span>
+                    <span id="status-text" class="hidden sm:inline">Connected</span>
+                </div>
+
+                <!-- Auto Refresh Select -->
+                <div class="hidden md:flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
+                    <span class="text-slate-400 dark:text-slate-400 pl-2"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                    <select id="auto-refresh-select" onchange="changeRefreshInterval(this.value)" class="bg-transparent text-slate-700 dark:text-slate-200 text-xs font-medium focus:outline-none cursor-pointer pr-1">
+                        <option value="5000" class="bg-white dark:bg-slate-900">5s</option>
+                        <option value="10000" class="bg-white dark:bg-slate-900">10s</option>
+                        <option value="30000" class="bg-white dark:bg-slate-900">30s</option>
+                        <option value="manual" class="bg-white dark:bg-slate-900">Manual</option>
+                    </select>
+                </div>
+
+                <!-- Refresh Button -->
+                <button onclick="triggerManualRefresh()" title="Refresh Data" class="p-2 sm:px-3 sm:py-1.5 border border-slate-200 dark:border-slate-700 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition flex items-center space-x-1.5 shadow-sm">
+                    <i id="refresh-icon" class="fa-solid fa-rotate"></i>
+                    <span class="hidden sm:inline">Refresh</span>
+                </button>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleDarkMode()" title="Toggle Theme" class="p-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    <i id="theme-icon" class="fa-solid fa-sun text-amber-400"></i>
+                </button>
+
+                <!-- Settings Modal Launcher -->
+                <button onclick="openSettingsModal()" title="Alert Settings & Simulation Controls" class="p-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- ACTIVE NODE SELECTOR BAR -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Active Sensor Node:</span>
+                <div class="flex flex-wrap gap-2" id="node-selector-container">
+                    <!-- Dynamic Node Pills -->
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4 text-xs text-slate-500 dark:text-slate-400">
+                <span><i class="fa-solid fa-signal text-emerald-500 mr-1"></i> Signal: 98%</span>
+                <span><i class="fa-solid fa-battery-three-quarters text-blue-500 mr-1"></i> Battery: 4.1V</span>
+                <span id="data-mode-badge" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[11px] border border-slate-200 dark:border-slate-700">Source: SIMULATION</span>
+            </div>
+        </div>
+
+        <!-- TOP METRIC CARDS GRID -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            
+            <!-- Temperature Card -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Temperature</p>
+                        <div class="flex items-baseline mt-2 space-x-1">
+                            <span id="metric-temp" class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">--</span>
+                            <span class="text-lg font-bold text-slate-400">°C</span>
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-temperature-high"></i>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                    <span id="temp-status-badge" class="px-2 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                        Normal
+                    </span>
+                    <div class="text-slate-500 dark:text-slate-400 flex items-center space-x-2">
+                        <span>High: <b id="temp-peak" class="text-slate-700 dark:text-slate-200">--</b></span>
+                        <span>Low: <b id="temp-low" class="text-slate-700 dark:text-slate-200">--</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Humidity Card -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Relative Humidity</p>
+                        <div class="flex items-baseline mt-2 space-x-1">
+                            <span id="metric-humidity" class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">--</span>
+                            <span class="text-lg font-bold text-slate-400">%</span>
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-droplet"></i>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                    <span id="hum-status-badge" class="px-2 py-0.5 rounded-full font-semibold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300">
+                        Ideal Comfort
+                    </span>
+                    <div class="text-slate-500 dark:text-slate-400 flex items-center space-x-2">
+                        <span>High: <b id="hum-peak" class="text-slate-700 dark:text-slate-200">--</b></span>
+                        <span>Low: <b id="hum-low" class="text-slate-700 dark:text-slate-200">--</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dew Point Card -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Calculated Dew Point</p>
+                        <div class="flex items-baseline mt-2 space-x-1">
+                            <span id="metric-dewpoint" class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">--</span>
+                            <span class="text-lg font-bold text-slate-400">°C</span>
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-500 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-cloud-rain"></i>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Moisture Condensation</span>
+                    <span id="dew-comfort-text" class="font-medium text-slate-700 dark:text-slate-300">Comfortable</span>
+                </div>
+            </div>
+
+            <!-- Heat Index Card -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Heat Index (Feels Like)</p>
+                        <div class="flex items-baseline mt-2 space-x-1">
+                            <span id="metric-heatindex" class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">--</span>
+                            <span class="text-lg font-bold text-slate-400">°C</span>
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-500 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-temperature-arrow-up"></i>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Apparent Sensible Heat</span>
+                    <span id="heat-index-level" class="font-medium text-slate-700 dark:text-slate-300">Normal</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CHARTS SECTION -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            
+            <!-- Chart Toolbar -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-blue-500"></i>
+                        Telemetry Trend Analytics
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Real-time and historical time-series chart with limit thresholds</p>
+                </div>
+
+                <!-- Time Filter & View Mode Controls -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="inline-flex rounded-lg p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium">
+                        <button onclick="setTimeRange('1h')" id="range-1h" class="px-3 py-1 rounded-md transition text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">1H</button>
+                        <button onclick="setTimeRange('6h')" id="range-6h" class="px-3 py-1 rounded-md transition text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">6H</button>
+                        <button onclick="setTimeRange('24h')" id="range-24h" class="px-3 py-1 rounded-md transition text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">24H</button>
+                        <button onclick="setTimeRange('7d')" id="range-7d" class="px-3 py-1 rounded-md transition text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">7D</button>
+                    </div>
+
+                    <!-- Threshold Overlay Toggle -->
+                    <button onclick="toggleThresholdOverlay()" id="threshold-toggle-btn" class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-ruler-horizontal text-blue-500"></i>
+                        <span>Limits Overlay</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Temp Chart Box -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 px-1">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-temperature-low text-amber-500"></i> Temperature Curve (°C)</span>
+                        <span class="text-slate-400 font-normal" id="temp-chart-range-label">Last 1 Hour</span>
+                    </div>
+                    <div class="relative h-64 sm:h-72 w-full bg-slate-50/50 dark:bg-slate-950/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Humidity Chart Box -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 px-1">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-droplet text-blue-500"></i> Humidity Curve (%)</span>
+                        <span class="text-slate-400 font-normal" id="hum-chart-range-label">Last 1 Hour</span>
+                    </div>
+                    <div class="relative h-64 sm:h-72 w-full bg-slate-50/50 dark:bg-slate-950/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
+                        <canvas id="humidityChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- HISTORICAL DATA LOG TABLE -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            
+            <!-- Table Action Header -->
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-database text-indigo-500"></i>
+                        Telemetry Historical Records
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Search, filter and export logged sensor readings</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+                        <input type="text" id="table-search" oninput="handleTableSearch(this.value)" placeholder="Search date, temp, status..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Filter Node Dropdown -->
+                    <select id="table-node-filter" onchange="handleTableFilter()" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:outline-none">
+                        <option value="all">All Nodes</option>
+                        <option value="node1">Node 1 - Living Room</option>
+                        <option value="node2">Node 2 - Greenhouse</option>
+                        <option value="node3">Node 3 - Server Room</option>
+                    </select>
+
+                    <!-- Export Buttons -->
+                    <div class="flex items-center space-x-1">
+                        <button onclick="exportData('csv')" title="Export CSV" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-file-csv text-emerald-500"></i>
+                            <span>CSV</span>
+                        </button>
+                        <button onclick="exportData('json')" title="Export JSON" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-file-code text-blue-500"></i>
+                            <span>JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Area -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 dark:bg-slate-800/50 text-slate-400 dark:text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                            <th class="px-6 py-3.5">Timestamp</th>
+                            <th class="px-6 py-3.5">Sensor Node</th>
+                            <th class="px-6 py-3.5">Temperature (°C)</th>
+                            <th class="px-6 py-3.5">Humidity (%)</th>
+                            <th class="px-6 py-3.5">Heat Index (°C)</th>
+                            <th class="px-6 py-3.5">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body" class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+                        <tr>
+                            <td colspan="6" class="px-6 py-8 text-center text-slate-400">Loading telemetry log...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Pagination & Footer -->
+            <div class="px-6 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                <div id="table-info-badge">
+                    Showing 0 of 0 entries
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="changePage(-1)" id="btn-prev-page" class="px-3 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition">
+                        <i class="fa-solid fa-chevron-left"></i> Prev
+                    </button>
+                    <span id="page-number-indicator" class="font-medium text-slate-700 dark:text-slate-300">Page 1 of 1</span>
+                    <button onclick="changePage(1)" id="btn-next-page" class="px-3 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition">
+                        Next <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>© 2026 <b>Ratchapum CE6921</b> - Industrial IoT Telemetry System</span>
+            <span class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> System Operational
+            </span>
+        </div>
+    </footer>
+
+    <!-- SETTINGS & CONTROLS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-6 transform scale-95 transition-transform duration-200" id="settings-modal-card">
+            
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-500"></i>
+                    Dashboard Thresholds & Controls
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Threshold Settings Form -->
+            <div class="space-y-4 text-xs">
+                <h4 class="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Alert Limits Config</h4>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">Max Temp Alert (°C)</label>
+                        <input type="number" id="cfg-temp-high" value="32.0" step="0.5" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">Min Temp Alert (°C)</label>
+                        <input type="number" id="cfg-temp-low" value="18.0" step="0.5" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">Max Humidity Alert (%)</label>
+                        <input type="number" id="cfg-hum-high" value="75.0" step="1" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">Min Humidity Alert (%)</label>
+                        <input type="number" id="cfg-hum-low" value="30.0" step="1" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <hr class="border-slate-100 dark:border-slate-800">
+
+                <!-- Data Source Selector -->
+                <h4 class="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Data Source Setup</h4>
+                <div class="space-y-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="source_type" value="sim" id="src-sim" checked onchange="toggleSourceInput()" class="text-blue-600 focus:ring-blue-500">
+                        <span class="text-slate-700 dark:text-slate-300 font-medium">Standalone High-Frequency Telemetry Physics Simulation</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="source_type" value="csv" id="src-csv" onchange="toggleSourceInput()" class="text-blue-600 focus:ring-blue-500">
+                        <span class="text-slate-700 dark:text-slate-300 font-medium">Google Sheets Live CSV Feed</span>
+                    </label>
+                </div>
+
+                <div id="csv-input-container" class="hidden space-y-1">
+                    <label class="block text-slate-500 dark:text-slate-400 text-[11px]">Published Google Sheet CSV URL:</label>
+                    <input type="text" id="cfg-csv-url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQqbEuusjzmVepd22HRDbazmZEmZjJkUDZD5WDyf6Eh8sDzDwzAN_r5TPVHITDvwBjYa4hmwctCrlNM/pub?output=csv" class="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-mono text-[11px]">
+                </div>
+
+                <hr class="border-slate-100 dark:border-slate-800">
+
+                <!-- Interactive Test Controls -->
+                <h4 class="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Test & Simulation Actions</h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="injectAnomalySpike()" class="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg font-medium transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Inject Heat Spike</span>
+                    </button>
+                    <button onclick="togglePauseFeed()" id="btn-pause-feed" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-pause"></i>
+                        <span>Pause Telemetry</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center justify-end space-x-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    Cancel
+                </button>
+                <button onclick="saveSettings()" class="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- GLOBAL APP STATE ---
+        const state = {
+            darkMode: true,
+            activeNode: 'node1',
+            nodes: {
+                node1: { id: 'node1', name: 'Node 1 - Living Room', baseTemp: 24.5, baseHum: 52 },
+                node2: { id: 'node2', name: 'Node 2 - Greenhouse', baseTemp: 31.0, baseHum: 78 },
+                node3: { id: 'node3', name: 'Node 3 - Server Room', baseTemp: 19.5, baseHum: 40 }
+            },
+            timeRange: '1h', // '1h', '6h', '24h', '7d'
+            showThresholds: true,
+            refreshInterval: 5000, // 5 seconds default
+            isPaused: false,
+            sourceType: 'sim', // 'sim' or 'csv'
+            csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqbEuusjzmVepd22HRDbazmZEmZjJkUDZD5WDyf6Eh8sDzDwzAN_r5TPVHITDvwBjYa4hmwctCrlNM/pub?output=csv',
+            thresholds: {
+                tempHigh: 32.0,
+                tempLow: 18.0,
+                humHigh: 75.0,
+                humLow: 30.0
+            },
+            telemetryLogs: [], // Array of log objects
+            filteredLogs: [],
+            tableSearchQuery: '',
+            tableNodeFilter: 'all',
+            currentPage: 1,
+            pageSize: 7,
+            timerId: null
+        };
+
+        // --- CHART INSTANCES ---
+        let tempChartInstance = null;
+        let humidityChartInstance = null;
+
+        // --- CALCULATION HELPER FUNCTIONS ---
+        // Magnus-Tetens formula for Dew Point (°C)
+        function calculateDewPoint(T, RH) {
+            const a = 17.27;
+            const b = 237.7;
+            const alpha = ((a * T) / (b + T)) + Math.log(RH / 100);
+            const dewPoint = (b * alpha) / (a - alpha);
+            return isNaN(dewPoint) ? T : dewPoint;
+        }
+
+        // Rothfusz Heat Index Formula (°C)
+        function calculateHeatIndex(T, RH) {
+            if (T < 26.7) return T; // Heat index not applicable below ~27°C
+            const c1 = -8.7846947, c2 = 1.61139411, c3 = 2.33854883, c4 = -0.14611605,
+                  c5 = -0.012308094, c6 = -0.016424827, c7 = 0.002211732, c8 = 0.00072546, c9 = -0.000003582;
+            const T2 = T * T;
+            const RH2 = RH * RH;
+            let hi = c1 + (c2 * T) + (c3 * RH) + (c4 * T * RH) + (c5 * T2) + (c6 * RH2) + (c7 * T2 * RH) + (c8 * T * RH2) + (c9 * T2 * RH2);
+            return Math.max(T, hi);
+        }
+
+        // --- DATA GENERATION & SEEDING ---
+        function generateHistoricalData() {
+            const logs = [];
+            const now = new Date();
+            const nodeKeys = Object.keys(state.nodes);
+            
+            // Seed 120 datapoints (simulating past several days)
+            for (let i = 120; i >= 0; i--) {
+                const timestamp = new Date(now.getTime() - i * 15 * 60 * 1000); // 15 minute steps
+                
+                nodeKeys.forEach(nodeId => {
+                    const node = state.nodes[nodeId];
+                    // Natural subtle sine wave variation + random jitter
+                    const timeFactor = Math.sin(timestamp.getTime() / 3600000);
+                    const tempJitter = (Math.random() - 0.5) * 1.2;
+                    const humJitter = (Math.random() - 0.5) * 2.5;
+
+                    const temp = parseFloat((node.baseTemp + (timeFactor * 2.5) + tempJitter).toFixed(1));
+                    const hum = Math.min(100, Math.max(10, parseFloat((node.baseHum - (timeFactor * 4) + humJitter).toFixed(1))));
+                    const dewPoint = parseFloat(calculateDewPoint(temp, hum).toFixed(1));
+                    const heatIndex = parseFloat(calculateHeatIndex(temp, hum).toFixed(1));
+
+                    logs.push({
+                        id: `${nodeId}-${timestamp.getTime()}`,
+                        timestamp: timestamp,
+                        timeStr: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                        dateTimeStr: timestamp.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                        nodeId: nodeId,
+                        nodeName: node.name,
+                        temp: temp,
+                        humidity: hum,
+                        dewPoint: dewPoint,
+                        heatIndex: heatIndex
+                    });
+                });
+            }
+            state.telemetryLogs = logs;
+        }
+
+        // --- SIMULATION TICK / FETCH LOGIC ---
+        async function fetchOrSimulateData() {
+            if (state.isPaused) return;
+
+            updateConnectionBadge('syncing');
+
+            if (state.sourceType === 'csv') {
+                try {
+                    const res = await fetch(state.csvUrl);
+                    if (!res.ok) throw new Error("Network failed");
+                    const csvText = await res.text();
+                    parseCSVData(csvText);
+                    updateConnectionBadge('connected');
+                } catch (err) {
+                    console.warn("CSV Fetch failed, falling back to simulation tick:", err);
+                    simulateLiveTick();
+                    updateConnectionBadge('connected');
+                }
+            } else {
+                // Standalone Simulation mode
+                setTimeout(() => {
+                    simulateLiveTick();
+                    updateConnectionBadge('connected');
+                }, 300);
+            }
+        }
+
+        function simulateLiveTick() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateTimeStr = now.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            Object.keys(state.nodes).forEach(nodeId => {
+                const lastLog = state.telemetryLogs.filter(l => l.nodeId === nodeId).slice(-1)[0];
+                const baseTemp = lastLog ? lastLog.temp : state.nodes[nodeId].baseTemp;
+                const baseHum = lastLog ? lastLog.humidity : state.nodes[nodeId].baseHum;
+
+                // Random walk logic
+                const tempDelta = (Math.random() - 0.49) * 0.4;
+                const humDelta = (Math.random() - 0.49) * 0.8;
+
+                const newTemp = parseFloat((baseTemp + tempDelta).toFixed(1));
+                const newHum = Math.min(100, Math.max(15, parseFloat((baseHum + humDelta).toFixed(1))));
+                const dewPoint = parseFloat(calculateDewPoint(newTemp, newHum).toFixed(1));
+                const heatIndex = parseFloat(calculateHeatIndex(newTemp, newHum).toFixed(1));
+
+                state.telemetryLogs.push({
+                    id: `${nodeId}-${now.getTime()}`,
+                    timestamp: now,
+                    timeStr: timeStr,
+                    dateTimeStr: dateTimeStr,
+                    nodeId: nodeId,
+                    nodeName: state.nodes[nodeId].name,
+                    temp: newTemp,
+                    humidity: newHum,
+                    dewPoint: dewPoint,
+                    heatIndex: heatIndex
+                });
+            });
+
+            // Keep log size clean (max 500 records)
+            if (state.telemetryLogs.length > 1500) {
+                state.telemetryLogs = state.telemetryLogs.slice(-1000);
+            }
+
+            renderUI();
+        }
+
+        function parseCSVData(csvText) {
+            const lines = csvText.split('\n').filter(l => l.trim() !== '');
+            if (lines.length < 2) return;
+
+            const now = new Date();
+            const newLogs = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+                if (cols.length < 3) continue;
+
+                const timestampStr = cols[0] || now.toLocaleTimeString();
+                const temp = parseFloat(cols[1]);
+                const hum = parseFloat(cols[2]);
+
+                if (!isNaN(temp) && !isNaN(hum)) {
+                    const dewPoint = parseFloat(calculateDewPoint(temp, hum).toFixed(1));
+                    const heatIndex = parseFloat(calculateHeatIndex(temp, hum).toFixed(1));
+                    
+                    newLogs.push({
+                        id: `node1-csv-${i}`,
+                        timestamp: new Date(),
+                        timeStr: timestampStr,
+                        dateTimeStr: timestampStr,
+                        nodeId: 'node1',
+                        nodeName: state.nodes['node1'].name,
+                        temp: temp,
+                        humidity: hum,
+                        dewPoint: dewPoint,
+                        heatIndex: heatIndex
+                    });
+                }
+            }
+
+            if (newLogs.length > 0) {
+                state.telemetryLogs = newLogs;
+                renderUI();
+            }
+        }
+
+        // --- UI RENDER FUNCTIONS ---
+        function renderUI() {
+            renderNodeSelector();
+            renderMetricCards();
+            renderCharts();
+            renderTable();
+        }
+
+        function renderNodeSelector() {
+            const container = document.getElementById('node-selector-container');
+            container.innerHTML = '';
+
+            Object.keys(state.nodes).forEach(nodeId => {
+                const node = state.nodes[nodeId];
+                const isActive = nodeId === state.activeNode;
+                const btn = document.createElement('button');
+                btn.onclick = () => selectNode(nodeId);
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 ${
+                    isActive 
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`;
+                btn.innerHTML = `<i class="fa-solid fa-server text-[10px]"></i><span>${node.name}</span>`;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectNode(nodeId) {
+            state.activeNode = nodeId;
+            renderUI();
+        }
+
+        function getActiveNodeLogs() {
+            return state.telemetryLogs.filter(l => l.nodeId === state.activeNode);
+        }
+
+        function renderMetricCards() {
+            const logs = getActiveNodeLogs();
+            if (logs.length === 0) return;
+
+            const latest = logs[logs.length - 1];
+
+            // Temperature Metrics
+            document.getElementById('metric-temp').innerText = latest.temp.toFixed(1);
+            
+            const temps = logs.map(l => l.temp);
+            const tempMax = Math.max(...temps).toFixed(1);
+            const tempMin = Math.min(...temps).toFixed(1);
+            document.getElementById('temp-peak').innerText = `${tempMax}°`;
+            document.getElementById('temp-low').innerText = `${tempMin}°`;
+
+            const tempBadge = document.getElementById('temp-status-badge');
+            if (latest.temp > state.thresholds.tempHigh) {
+                tempBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 animate-pulse';
+                tempBadge.innerText = 'Critical High';
+            } else if (latest.temp < state.thresholds.tempLow) {
+                tempBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300';
+                tempBadge.innerText = 'Low Temp';
+            } else {
+                tempBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300';
+                tempBadge.innerText = 'Optimal';
+            }
+
+            // Humidity Metrics
+            document.getElementById('metric-humidity').innerText = latest.humidity.toFixed(1);
+            
+            const hums = logs.map(l => l.humidity);
+            const humMax = Math.max(...hums).toFixed(1);
+            const humMin = Math.min(...hums).toFixed(1);
+            document.getElementById('hum-peak').innerText = `${humMax}%`;
+            document.getElementById('hum-low').innerText = `${humMin}%`;
+
+            const humBadge = document.getElementById('hum-status-badge');
+            if (latest.humidity > state.thresholds.humHigh) {
+                humBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300';
+                humBadge.innerText = 'High Humidity';
+            } else if (latest.humidity < state.thresholds.humLow) {
+                humBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-orange-100 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300';
+                humBadge.innerText = 'Dry Air';
+            } else {
+                humBadge.className = 'px-2 py-0.5 rounded-full font-semibold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300';
+                humBadge.innerText = 'Ideal Comfort';
+            }
+
+            // Dew Point & Heat Index
+            document.getElementById('metric-dewpoint').innerText = latest.dewPoint.toFixed(1);
+            document.getElementById('metric-heatindex').innerText = latest.heatIndex.toFixed(1);
+
+            const dewComfort = document.getElementById('dew-comfort-text');
+            if (latest.dewPoint > 20) dewComfort.innerText = 'Muggy / Uncomfortable';
+            else if (latest.dewPoint < 10) dewComfort.innerText = 'Dry Air';
+            else dewComfort.innerText = 'Comfortable';
+
+            const heatLevel = document.getElementById('heat-index-level');
+            if (latest.heatIndex > 38) heatLevel.innerText = 'Extreme Caution';
+            else if (latest.heatIndex > 32) heatLevel.innerText = 'Warm Caution';
+            else heatLevel.innerText = 'Normal';
+        }
+
+        // --- CHART RENDERING LOGIC ---
+        function initCharts() {
+            const isDark = state.darkMode;
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+
+            // Temperature Chart
+            const ctxTemp = document.getElementById('tempChart').getContext('2d');
+            const gradientTemp = ctxTemp.createLinearGradient(0, 0, 0, 300);
+            gradientTemp.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
+            gradientTemp.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+            tempChartInstance = new Chart(ctxTemp, {
+                type: 'line',
+                data: { labels: [], datasets: [{
+                    label: 'Temperature (°C)',
+                    data: [],
+                    borderColor: '#f59e0b',
+                    backgroundColor: gradientTemp,
+                    borderWidth: 2.5,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 5,
+                    fill: true,
+                    tension: 0.35
+                }]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } }
+                    }
+                }
+            });
+
+            // Humidity Chart
+            const ctxHum = document.getElementById('humidityChart').getContext('2d');
+            const gradientHum = ctxHum.createLinearGradient(0, 0, 0, 300);
+            gradientHum.addColorStop(0, 'rgba(59, 130, 246, 0.35)');
+            gradientHum.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+            humidityChartInstance = new Chart(ctxHum, {
+                type: 'line',
+                data: { labels: [], datasets: [{
+                    label: 'Humidity (%)',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: gradientHum,
+                    borderWidth: 2.5,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 5,
+                    fill: true,
+                    tension: 0.35
+                }]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderCharts() {
+            let logs = getActiveNodeLogs();
+            if (logs.length === 0) return;
+
+            // Filter data points according to selected time range
+            let sliceCount = 20;
+            if (state.timeRange === '1h') sliceCount = 15;
+            else if (state.timeRange === '6h') sliceCount = 35;
+            else if (state.timeRange === '24h') sliceCount = 70;
+            else if (state.timeRange === '7d') sliceCount = 120;
+
+            const displayLogs = logs.slice(-sliceCount);
+            const labels = displayLogs.map(l => l.timeStr);
+            const tempVals = displayLogs.map(l => l.temp);
+            const humVals = displayLogs.map(l => l.humidity);
+
+            if (tempChartInstance) {
+                tempChartInstance.data.labels = labels;
+                tempChartInstance.data.datasets[0].data = tempVals;
+                tempChartInstance.update('none'); // smooth update
+            }
+
+            if (humidityChartInstance) {
+                humidityChartInstance.data.labels = labels;
+                humidityChartInstance.data.datasets[0].data = humVals;
+                humidityChartInstance.update('none');
+            }
+        }
+
+        function setTimeRange(range) {
+            state.timeRange = range;
+            ['1h', '6h', '24h', '7d'].forEach(r => {
+                const btn = document.getElementById(`range-${r}`);
+                if (r === range) {
+                    btn.className = 'px-3 py-1 rounded-md transition text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-sm font-semibold';
+                } else {
+                    btn.className = 'px-3 py-1 rounded-md transition text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white';
+                }
+            });
+            renderCharts();
+        }
+
+        function toggleThresholdOverlay() {
+            state.showThresholds = !state.showThresholds;
+            const btn = document.getElementById('threshold-toggle-btn');
+            btn.classList.toggle('border-blue-500', state.showThresholds);
+            btn.classList.toggle('bg-blue-50', state.showThresholds);
+            btn.classList.toggle('dark:bg-blue-950', state.showThresholds);
+            renderCharts();
+        }
+
+        // --- TABLE LOGIC & PAGINATION ---
+        function renderTable() {
+            let filtered = state.telemetryLogs;
+
+            // Filter Node
+            if (state.tableNodeFilter !== 'all') {
+                filtered = filtered.filter(l => l.nodeId === state.tableNodeFilter);
+            }
+
+            // Search Filter
+            if (state.tableSearchQuery.trim() !== '') {
+                const q = state.tableSearchQuery.toLowerCase();
+                filtered = filtered.filter(l => 
+                    l.dateTimeStr.toLowerCase().includes(q) ||
+                    l.nodeName.toLowerCase().includes(q) ||
+                    l.temp.toString().includes(q) ||
+                    l.humidity.toString().includes(q)
+                );
+            }
+
+            // Order newest first
+            filtered = [...filtered].reverse();
+            state.filteredLogs = filtered;
+
+            const totalEntries = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalEntries / state.pageSize));
+            if (state.currentPage > totalPages) state.currentPage = totalPages;
+
+            const startIndex = (state.currentPage - 1) * state.pageSize;
+            const pageData = filtered.slice(startIndex, startIndex + state.pageSize);
+
+            const tbody = document.getElementById('data-table-body');
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">No telemetry logs matched your query.</td></tr>`;
+            } else {
+                pageData.forEach(row => {
+                    const isTempHigh = row.temp > state.thresholds.tempHigh;
+                    const isHumHigh = row.humidity > state.thresholds.humHigh;
+                    let statusBadge = '<span class="px-2 py-0.5 rounded-full font-medium text-[11px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">Normal</span>';
+
+                    if (isTempHigh || isHumHigh) {
+                        statusBadge = '<span class="px-2 py-0.5 rounded-full font-medium text-[11px] bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">Alert Exceeded</span>';
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/40 transition';
+                    tr.innerHTML = `
+                        <td class="px-6 py-3 font-mono text-slate-600 dark:text-slate-400">${row.dateTimeStr}</td>
+                        <td class="px-6 py-3 font-semibold text-slate-800 dark:text-slate-200">${row.nodeName}</td>
+                        <td class="px-6 py-3 font-medium ${isTempHigh ? 'text-amber-500 font-bold' : ''}">${row.temp} °C</td>
+                        <td class="px-6 py-3 font-medium ${isHumHigh ? 'text-blue-500 font-bold' : ''}">${row.humidity} %</td>
+                        <td class="px-6 py-3 text-slate-500 dark:text-slate-400">${row.heatIndex} °C</td>
+                        <td class="px-6 py-3">${statusBadge}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Pagination UI
+            document.getElementById('table-info-badge').innerText = `Showing ${Math.min(startIndex + 1, totalEntries)} - ${Math.min(startIndex + pageData.length, totalEntries)} of ${totalEntries} entries`;
+            document.getElementById('page-number-indicator').innerText = `Page ${state.currentPage} of ${totalPages}`;
+            document.getElementById('btn-prev-page').disabled = state.currentPage === 1;
+            document.getElementById('btn-next-page').disabled = state.currentPage === totalPages;
+        }
+
+        function handleTableSearch(query) {
+            state.tableSearchQuery = query;
+            state.currentPage = 1;
+            renderTable();
+        }
+
+        function handleTableFilter() {
+            state.tableNodeFilter = document.getElementById('table-node-filter').value;
+            state.currentPage = 1;
+            renderTable();
+        }
+
+        function changePage(delta) {
+            state.currentPage += delta;
+            renderTable();
+        }
+
+        // --- EXPORT FUNCTIONALITY ---
+        function exportData(type) {
+            const dataToExport = state.filteredLogs.length > 0 ? state.filteredLogs : state.telemetryLogs;
+
+            if (type === 'json') {
+                const jsonStr = JSON.stringify(dataToExport, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                downloadBlob(blob, `telemetry_export_${Date.now()}.json`);
+            } else if (type === 'csv') {
+                let csv = 'Timestamp,Node ID,Node Name,Temperature_C,Humidity_Pct,HeatIndex_C,DewPoint_C\n';
+                dataToExport.forEach(r => {
+                    csv += `"${r.dateTimeStr}","${r.nodeId}","${r.nodeName}",${r.temp},${r.humidity},${r.heatIndex},${r.dewPoint}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                downloadBlob(blob, `telemetry_export_${Date.now()}.csv`);
+            }
+        }
+
+        function downloadBlob(blob, fileName) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- DARK MODE & THEME LOGIC ---
+        function toggleDarkMode() {
+            state.darkMode = !state.darkMode;
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+
+            if (state.darkMode) {
+                html.classList.add('dark');
+                icon.className = 'fa-solid fa-sun text-amber-400';
+            } else {
+                html.classList.remove('dark');
+                icon.className = 'fa-solid fa-moon text-slate-600';
+            }
+
+            // Re-render chart scale colors
+            if (tempChartInstance) tempChartInstance.destroy();
+            if (humidityChartInstance) humidityChartInstance.destroy();
+            initCharts();
+            renderCharts();
+        }
+
+        // --- SETTINGS MODAL & CONTROL HANDLERS ---
+        function openSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            const card = document.getElementById('settings-modal-card');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            const card = document.getElementById('settings-modal-card');
+            modal.classList.add('opacity-0');
+            card.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function toggleSourceInput() {
+            const isCsv = document.getElementById('src-csv').checked;
+            document.getElementById('csv-input-container').classList.toggle('hidden', !isCsv);
+        }
+
+        function saveSettings() {
+            state.thresholds.tempHigh = parseFloat(document.getElementById('cfg-temp-high').value) || 32.0;
+            state.thresholds.tempLow = parseFloat(document.getElementById('cfg-temp-low').value) || 18.0;
+            state.thresholds.humHigh = parseFloat(document.getElementById('cfg-hum-high').value) || 75.0;
+            state.thresholds.humLow = parseFloat(document.getElementById('cfg-hum-low').value) || 30.0;
+
+            const isCsv = document.getElementById('src-csv').checked;
+            state.sourceType = isCsv ? 'csv' : 'sim';
+            state.csvUrl = document.getElementById('cfg-csv-url').value;
+
+            document.getElementById('data-mode-badge').innerText = `Source: ${state.sourceType.toUpperCase()}`;
+
+            closeSettingsModal();
+            renderUI();
+        }
+
+        function injectAnomalySpike() {
+            const activeLogs = getActiveNodeLogs();
+            if (activeLogs.length === 0) return;
+
+            const now = new Date();
+            const spikeTemp = 36.8; // High spike
+            const spikeHum = 88.0;
+
+            state.telemetryLogs.push({
+                id: `${state.activeNode}-spike-${now.getTime()}`,
+                timestamp: now,
+                timeStr: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                dateTimeStr: now.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                nodeId: state.activeNode,
+                nodeName: state.nodes[state.activeNode].name,
+                temp: spikeTemp,
+                humidity: spikeHum,
+                dewPoint: parseFloat(calculateDewPoint(spikeTemp, spikeHum).toFixed(1)),
+                heatIndex: parseFloat(calculateHeatIndex(spikeTemp, spikeHum).toFixed(1))
+            });
+
+            closeSettingsModal();
+            renderUI();
+        }
+
+        function togglePauseFeed() {
+            state.isPaused = !state.isPaused;
+            const btn = document.getElementById('btn-pause-feed');
+            if (state.isPaused) {
+                btn.className = 'px-3 py-2 bg-rose-500/10 text-rose-500 border border-rose-500/30 rounded-lg font-medium transition flex items-center justify-center space-x-1.5';
+                btn.innerHTML = `<i class="fa-solid fa-play"></i><span>Resume Telemetry</span>`;
+                updateConnectionBadge('offline');
+            } else {
+                btn.className = 'px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium transition flex items-center justify-center space-x-1.5';
+                btn.innerHTML = `<i class="fa-solid fa-pause"></i><span>Pause Telemetry</span>`;
+                updateConnectionBadge('connected');
+            }
+        }
+
+        function changeRefreshInterval(val) {
+            if (state.timerId) clearInterval(state.timerId);
+
+            if (val !== 'manual') {
+                const interval = parseInt(val, 10);
+                state.refreshInterval = interval;
+                state.timerId = setInterval(fetchOrSimulateData, interval);
+            }
+        }
+
+        function triggerManualRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('fa-spin');
+            fetchOrSimulateData();
+            setTimeout(() => icon.classList.remove('fa-spin'), 600);
+        }
+
+        function updateConnectionBadge(status) {
+            const badge = document.getElementById('connection-status-badge');
+            const led = document.getElementById('status-led');
+            const txt = document.getElementById('status-text');
+
+            if (status === 'connected') {
+                badge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+                led.className = 'w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse shadow-sm shadow-emerald-500';
+                txt.innerText = 'Connected';
+            } else if (status === 'syncing') {
+                badge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+                led.className = 'w-2 h-2 mr-1.5 bg-amber-500 rounded-full animate-pulse';
+                txt.innerText = 'Syncing...';
+            } else if (status === 'offline') {
+                badge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-slate-700';
+                led.className = 'w-2 h-2 mr-1.5 bg-slate-400 rounded-full';
+                txt.innerText = 'Paused';
+            }
+        }
+
+        // --- APP INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            generateHistoricalData();
+            initCharts();
+            setTimeRange('1h');
+            renderUI();
+
+            // Start default timer
+            state.timerId = setInterval(fetchOrSimulateData, state.refreshInterval);
+        });
+    </script>
+</body>
+</html>
